@@ -1,6 +1,35 @@
 import cv2
 import numpy as np
 import os
+from rich.console import Console
+from rich.prompt import Prompt, Confirm
+from rich.panel import Panel
+from rich.progress import track
+from rich import print as rprint
+import tkinter as tk
+from tkinter import filedialog
+
+console = Console()
+import tkinter as tk
+from rich.console import Console
+from rich.panel import Panel
+def browse_for_image():
+    """Open file dialog to browse for an image."""
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    root.attributes('-topmost', True)  # Bring dialog to front
+    
+    file_path = filedialog.askopenfilename(
+        title="Select an image file",
+        filetypes=[
+            ("Image files", "*.jpg *.jpeg *.png *.bmp *.tiff *.webp"),
+            ("JPEG files", "*.jpg *.jpeg"),
+            ("PNG files", "*.png"),
+            ("All files", "*.*")
+        ]
+    )
+    root.destroy()
+    return file_path
 
 def hex_to_bgr(hex_color: str):
     """Convert hex color to BGR format."""
@@ -51,7 +80,7 @@ def detect_by_color(image_path: str, hex_color: str, object_name: str="object"):
     """Detect objects of a specific color in an image."""
     image = cv2.imread(image_path)
     if image is None:
-        print("Error: Image not found.")
+        console.print("[bold red]Error:[/bold red] Image not found.", style="red")
         return
     hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     
@@ -80,31 +109,61 @@ def detect_by_color(image_path: str, hex_color: str, object_name: str="object"):
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(image, object_name, (x, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-    if not found:
-        print(f"No {object_name} detected.")
     
     # Save the output image with _detected suffix
     base_name = os.path.splitext(image_path)[0]
     extension = os.path.splitext(image_path)[1]
     output_path = f"{base_name}_detected{extension}"
     cv2.imwrite(output_path, image)
-    print(f"Detected image saved as: {output_path}")
+    
+    if found:
+        console.print(f"[bold green]✓[/bold green] Detected {object_name}(s) in the image!")
+        console.print(f"[cyan]Saved as:[/cyan] {output_path}")
+    else:
+        console.print(f"[bold yellow]![/bold yellow] No {object_name} detected.")
+        console.print(f"[cyan]Image saved as:[/cyan] {output_path}")
     
     cv2.imshow("Detected Objects", image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 def main():
-    print("=== Color-Based Object Detector ===")
-    image_path = input("Enter the path to the image file: ")
-    hex_color = input("Enter the hex color code of the object to detect (e.g., #FF5733): ")
-    object_name = input("Enter the name of the object (e.g., 'ball', 'box'): ")
+    console.print(Panel.fit(
+        "[bold cyan]Color-Based Object Detector[/bold cyan]\n"
+        "Detect objects by their color in images",
+        border_style="cyan"
+    ))
+    
+    # Ask if user wants to browse or type path
+    browse = Confirm.ask("[yellow]Would you like to browse for an image?[/yellow]", default=True)
+    
+    if browse:
+        console.print("[dim]Opening file browser...[/dim]")
+        image_path = browse_for_image()
+        if not image_path:
+            console.print("[bold red]No file selected. Exiting.[/bold red]")
+            return
+        console.print(f"[green]Selected:[/green] {image_path}")
+    else:
+        image_path = Prompt.ask("[yellow]Enter the path to the image file[/yellow]")
+    
+    hex_color = Prompt.ask(
+        "[yellow]Enter the hex color code[/yellow]",
+        default="#FF5733"
+    )
+    
+    object_name = Prompt.ask(
+        "[yellow]Enter the name of the object[/yellow]",
+        default="object"
+    )
+    
+    console.print("\n[dim]Processing image...[/dim]")
     
     try:
         detect_by_color(image_path, hex_color, object_name)
     except ValueError as e:
-        print(f"Error: {e}")
+        console.print(f"[bold red]Error:[/bold red] {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        console.print(f"[bold red]An error occurred:[/bold red] {e}")
 if __name__ == "__main__":
     main()
